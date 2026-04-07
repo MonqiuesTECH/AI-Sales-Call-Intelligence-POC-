@@ -4,225 +4,178 @@ import json
 from groq import Groq
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="AI CRM Intelligence", layout="wide", page_icon="📈")
+st.set_page_config(page_title="BD Intelligence Platform", layout="wide", page_icon="👔")
 
-# Initialize Groq
 try:
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 except KeyError:
     st.error("Missing GROQ_API_KEY in Streamlit secrets.")
     st.stop()
 
-# --- MOCK DATABASE (SESSION STATE) ---
+# --- MOCK DATABASE ---
 def init_db():
     st.session_state.crm_deals = pd.DataFrame({
-        'Deal_ID': ['D-101', 'D-102', 'D-103'],
-        'Client': ['TechCorp', 'Global Logistics', 'Retail Giant'],
-        'Rep': ['Monique Bruce', 'Alex Rivera', 'Monique Bruce'],
-        'Stage': ['Discovery', 'Negotiation', 'Closed Won'],
-        'Value': [50000, 120000, 15000] # Kept strictly as integers
+        'Deal_ID': ['D-101', 'D-102', 'D-103', 'D-104'],
+        'Client': ['TechCorp', 'Global Logistics', 'Retail Giant', 'Apex Financial'],
+        'Rep': ['Monique Bruce', 'Alex Rivera', 'Monique Bruce', 'Sarah Chen'],
+        'Stage': ['Discovery', 'Negotiation', 'Closed Won', 'Prospecting'],
+        'Value': [50000, 120000, 15000, 85000] 
     })
-    st.session_state.call_logs = []
+    st.session_state.interactions = [] # Now stores both calls and emails
 
-if 'crm_deals' not in st.session_state or 'call_logs' not in st.session_state:
+if 'crm_deals' not in st.session_state or 'interactions' not in st.session_state:
     init_db()
 
 # --- AI PROCESSING LOGIC ---
-def analyze_call_with_ai(transcript_text, rep_name):
-    prompt = f"""
-    Analyze the following sales call transcript for {rep_name}.
-    You must evaluate the 4 core KPIs on a scale of 1-10.
+def analyze_interaction_with_ai(content, rep_name, type="call"):
+    """Handles both Calls and Emails, specifically generating Head of BD coaching playbooks."""
     
-    Transcript: {transcript_text}
-    
-    Output ONLY valid JSON with the exact following schema:
-    {{
-        "kpi_scores": {{
-            "clarity": int,
-            "confidence": int,
-            "objection_handling": int,
-            "closing": int
-        }},
-        "key_takeaways": ["point 1", "point 2"],
-        "feedback": "Plain English constructive feedback",
-        "adaptive_suggestion": "One specific training action based on the lowest score"
-    }}
-    """
-    
+    if type == "call":
+        prompt = f"""
+        Analyze this sales call transcript for {rep_name}.
+        Transcript: {content}
+        
+        Output valid JSON:
+        {{
+            "kpi_scores": {{"clarity": int, "confidence": int, "objection_handling": int, "closing": int}},
+            "key_takeaways": ["point 1", "point 2"],
+            "manager_coaching_playbook": "Actionable advice for the Head of BD on exactly how to coach {rep_name} based on their weaknesses in this call."
+        }}
+        """
+    else:
+        prompt = f"""
+        Analyze this outbound sales email by {rep_name}.
+        Email: {content}
+        
+        Output valid JSON:
+        {{
+            "kpi_scores": {{"clarity": int, "persuasion": int, "call_to_action": int, "personalization": int}},
+            "key_takeaways": ["point 1", "point 2"],
+            "manager_coaching_playbook": "Actionable advice for the Head of BD on how to help {rep_name} improve their written outreach."
+        }}
+        """
+        
     response = client.chat.completions.create(
         model="llama3-8b-8192",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.1,
         response_format={"type": "json_object"}
     )
-    
     return json.loads(response.choices[0].message.content)
 
 # --- VIEWS ---
 
 def view_sales_rep():
     st.header("👤 Sales Representative Hub")
-    st.markdown("Manage your deals and log new meeting intelligence.")
+    st.markdown("Log calls and sync emails to update the BD pipeline.")
     
-    st.subheader("Active Deals")
+    # Using column_config for clean currency display
     st.dataframe(
         st.session_state.crm_deals, 
-        use_container_width=True, 
-        hide_index=True,
-        column_config={
-            "Value": st.column_config.NumberColumn(
-                "Value",
-                help="Total deal value in USD",
-                format="$%d"
-            )
-        }
+        use_container_width=True, hide_index=True,
+        column_config={"Value": st.column_config.NumberColumn("Value", format="$%d")}
     )
     
     st.divider()
     
-    st.subheader("🎙️ Log a Call (Zoom/Meet Sync)")
-    
+    rep_list = st.session_state.crm_deals['Rep'].unique()
     col1, col2 = st.columns([1, 2])
     with col1:
-        rep_list = st.session_state.crm_deals['Rep'].unique()
-        selected_rep = st.selectbox("Sales Representative", rep_list)
-        selected_deal = st.selectbox("Associate with Deal", st.session_state.crm_deals[st.session_state.crm_deals['Rep'] == selected_rep]['Deal_ID'])
-        uploaded_file = st.file_uploader("Upload Call Audio", type=["mp3", "wav", "m4a"])
+        selected_rep = st.selectbox("Identify User", rep_list)
+        selected_deal = st.selectbox("Associate Deal", st.session_state.crm_deals[st.session_state.crm_deals['Rep'] == selected_rep]['Deal_ID'])
     
-    if uploaded_file and st.button("Transcribe & Analyze"):
-        with st.spinner("Transcribing audio securely..."):
-            transcription = client.audio.transcriptions.create(
-                file=(uploaded_file.name, uploaded_file.read()),
-                model="whisper-large-v3",
-                response_format="text"
-            )
-            
-        with st.spinner("Extracting KPIs and coaching insights..."):
-            analysis_data = analyze_call_with_ai(transcription, selected_rep)
-            
-            st.session_state.call_logs.append({
-                "Rep": selected_rep,
-                "Deal_ID": selected_deal,
-                "Transcript": transcription,
-                "Analysis": analysis_data
-            })
-            
-        st.success("Call logged and analyzed successfully!")
+    with col2:
+        tab1, tab2 = st.tabs(["🎙️ Log Call", "📧 Sync Email"])
         
-        st.subheader("🧠 Post-Call Intelligence")
-        scores = analysis_data["kpi_scores"]
-        
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Clarity", f"{scores['clarity']}/10")
-        c2.metric("Confidence", f"{scores['confidence']}/10")
-        c3.metric("Objection Handling", f"{scores['objection_handling']}/10")
-        c4.metric("Closing", f"{scores['closing']}/10")
-        
-        st.info(f"**💡 Adaptive Coaching Suggestion:** {analysis_data['adaptive_suggestion']}")
-        
-        with st.expander("View Full Breakdown"):
-            st.write("**Key Takeaways:**")
-            for t in analysis_data['key_takeaways']:
-                st.write(f"- {t}")
-            st.write("**Detailed Feedback:**")
-            st.write(analysis_data['feedback'])
+        # --- CALL LOGGING ---
+        with tab1:
+            uploaded_file = st.file_uploader("Upload Call Audio", type=["mp3", "wav", "m4a"], key="audio_up")
+            if uploaded_file and st.button("Transcribe & Analyze Call"):
+                with st.spinner("Processing Audio via Whisper-v3..."):
+                    transcription = client.audio.transcriptions.create(
+                        file=(uploaded_file.name, uploaded_file.read()),
+                        model="whisper-large-v3",
+                        response_format="text"
+                    )
+                with st.spinner("Generating Coaching Insights..."):
+                    analysis_data = analyze_interaction_with_ai(transcription, selected_rep, type="call")
+                    st.session_state.interactions.append({
+                        "Type": "Call", "Rep": selected_rep, "Deal_ID": selected_deal,
+                        "Content": transcription, "Analysis": analysis_data
+                    })
+                st.success("Call added to Head of BD Dashboard.")
+                
+        # --- EMAIL LOGGING ---
+        with tab2:
+            email_text = st.text_area("Paste Outbound Email Text", height=150)
+            if email_text and st.button("Analyze Email"):
+                with st.spinner("Evaluating Email Copy..."):
+                    analysis_data = analyze_interaction_with_ai(email_text, selected_rep, type="email")
+                    st.session_state.interactions.append({
+                        "Type": "Email", "Rep": selected_rep, "Deal_ID": selected_deal,
+                        "Content": email_text, "Analysis": analysis_data
+                    })
+                st.success("Email synced to Head of BD Dashboard.")
 
-def view_admin_dashboard():
-    st.header("👑 Sales Manager Dashboard")
-    st.markdown("Overview of team activity, KPI trends, and adaptive learning needs.")
+def view_head_of_bd():
+    st.header("👔 Head of BD Dashboard")
+    st.markdown("Monitor pipeline, team communication, and targeted coaching playbooks.")
     
-    # --- TOP LEVEL METRICS ---
-    # Fail-safe: Force values to numeric, stripping any corrupted strings from old session memory
+    total_calls = sum(1 for i in st.session_state.interactions if i['Type'] == 'Call')
+    total_emails = sum(1 for i in st.session_state.interactions if i['Type'] == 'Email')
     clean_values = st.session_state.crm_deals['Value'].astype(str).str.replace(r'[$,]', '', regex=True)
     total_pipeline = pd.to_numeric(clean_values, errors='coerce').sum()
     
-    total_calls = len(st.session_state.call_logs)
-    
-    if total_calls > 0:
-        all_scores = [log['Analysis']['kpi_scores'] for log in st.session_state.call_logs]
-        df_scores = pd.DataFrame(all_scores)
-        avg_overall = df_scores.values.mean()
-        clarity_avg = df_scores['clarity'].mean()
-        confidence_avg = df_scores['confidence'].mean()
-        objection_avg = df_scores['objection_handling'].mean()
-        closing_avg = df_scores['closing'].mean()
-    else:
-        avg_overall = 0.0
-        clarity_avg = 0.0
-        confidence_avg = 0.0
-        objection_avg = 0.0
-        closing_avg = 0.0
-
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Calls Analyzed", total_calls)
-    m2.metric("Active Pipeline Value", f"${total_pipeline:,.0f}")
-    m3.metric("Team Overall KPI Score", f"{avg_overall:.1f} / 10")
-    m4.metric("Active Coaching Alerts", total_calls)
+    m1.metric("Calls Logged", total_calls)
+    m2.metric("Emails Synced", total_emails)
+    m3.metric("Pipeline Managed", f"${total_pipeline:,.0f}")
+    m4.metric("Coaching Alerts", len(st.session_state.interactions))
     
     st.divider()
 
-    # --- KPI BREAKDOWN & TRENDS ---
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Team KPI Performance")
-        kpi_chart_data = pd.DataFrame({
-            'KPI': ['Clarity', 'Confidence', 'Objections', 'Closing'],
-            'Score': [clarity_avg, confidence_avg, objection_avg, closing_avg]
-        }).set_index('KPI')
-        
-        # FIXED: Removed the st.altair_chart wrapper and just render the native bar chart.
-        st.bar_chart(kpi_chart_data, y='Score', height=300)
-        
-        if total_calls == 0:
-             st.caption("Awaiting call data to populate KPI distribution.")
-
-    with col2:
-        st.subheader("Historical Progress")
-        trend_data = pd.DataFrame({
-            "Week": ["W1", "W2", "W3", "Current"],
-            "Avg Score": [6.5, 7.0, 7.2, avg_overall if avg_overall > 0 else 7.2] 
-        }).set_index("Week")
-        st.line_chart(trend_data, height=300)
-
-    st.divider()
-
-    # --- REP ACTIVITY & ADAPTIVE COACHING ---
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        st.subheader("Call Activity by Rep")
-        rep_counts = {rep: 0 for rep in st.session_state.crm_deals['Rep'].unique()}
-        
-        for log in st.session_state.call_logs:
-            rep_counts[log['Rep']] = rep_counts.get(log['Rep'], 0) + 1
+    # --- LEADERSHIP COACHING ALERTS ---
+    st.subheader("🎯 Targeted Coaching Playbooks")
+    if not st.session_state.interactions:
+        st.info("Awaiting team activity. When reps log calls/emails, coaching playbooks will generate here.")
+    else:
+        for idx, log in enumerate(st.session_state.interactions):
+            rep = log['Rep']
+            deal = log['Deal_ID']
+            i_type = log['Type']
+            playbook = log['Analysis']['manager_coaching_playbook']
             
-        activity_df = pd.DataFrame(list(rep_counts.items()), columns=['Sales Rep', 'Total Calls Analyzed'])
-        st.dataframe(activity_df, use_container_width=True, hide_index=True)
-
-    with col4:
-        st.subheader("Adaptive Performance Tracking")
-        if total_calls == 0:
-            st.info("No actionable intelligence generated yet. Waiting for system to process incoming calls.")
-        else:
-            for idx, log in enumerate(st.session_state.call_logs):
-                rep = log['Rep']
-                deal = log['Deal_ID']
-                suggestion = log['Analysis']['adaptive_suggestion']
+            with st.expander(f"Action Required: Coach {rep} on {i_type} (Deal {deal})", expanded=True):
+                st.markdown(f"**How you can support their growth:**\n\n{playbook}")
                 
-                st.warning(f"**Action Required for {rep} (Deal {deal}):**\n\n{suggestion}")
+    st.divider()
+
+    # --- THE TRANSCRIPT / EMAIL ARCHIVE ---
+    st.subheader("🗄️ Communication Archive")
+    st.markdown("Filter and review raw team communication.")
+    
+    if st.session_state.interactions:
+        archive_reps = ["All Reps"] + list(st.session_state.crm_deals['Rep'].unique())
+        filter_rep = st.selectbox("Filter Archive by Rep", archive_reps)
+        
+        for log in reversed(st.session_state.interactions): # Show newest first
+            if filter_rep == "All Reps" or log['Rep'] == filter_rep:
+                icon = "🎙️ Call Transcript" if log['Type'] == "Call" else "📧 Email Copy"
+                with st.expander(f"{icon}: {log['Rep']} - Deal {log['Deal_ID']}"):
+                    st.write(log['Content'])
+    else:
+        st.caption("Archive is currently empty.")
 
 # --- MAIN APP ROUTING ---
 st.sidebar.title("Navigation")
-app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Manager Dashboard"])
+app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Head of BD Dashboard"])
 st.sidebar.divider()
 
-# Reset button to easily clear cache during testing/demos
 if st.sidebar.button("🔄 Reset POC Data"):
     init_db()
     st.rerun()
 
 if app_mode == "Sales Rep Hub":
     view_sales_rep()
-elif app_mode == "Manager Dashboard":
-    view_admin_dashboard()
+elif app_mode == "Head of BD Dashboard":
+    view_head_of_bd()
