@@ -60,7 +60,6 @@ def init_db():
         }
     ]
 
-    # New: CEO Financial & Agent State
     st.session_state.ceo_metrics = {
         "ARR": 10400000,
         "Cash_Runway_Months": 14,
@@ -77,13 +76,39 @@ for key in required_keys:
         init_db()
         break
 
-# --- AI PROCESSING LOGIC ---
+# --- AI PROCESSING LOGIC (FIXED FOR GROQ JSON API STRICTNESS) ---
 def analyze_interaction_with_ai(content, rep_name, type="call"):
-    prompt = f"""Analyze this {type} for {rep_name}. Output valid JSON: {{"kpi_scores": {{"clarity": int, "confidence": int, "objection_handling": int, "closing": int}}, "key_takeaways": ["point 1"], "manager_coaching_playbook": "Actionable advice."}} Text: {content}"""
-    response = client.chat.completions.create(
-        model="llama3-8b-8192", messages=[{"role": "user", "content": prompt}], temperature=0.1, response_format={"type": "json_object"}
-    )
-    return json.loads(response.choices[0].message.content)
+    # Groq requires "JSON" to be explicitly mentioned in the system prompt for json_object mode
+    system_prompt = """
+    You are an AI sales leadership coach. You must output ONLY valid JSON.
+    Your JSON must strictly follow this exact schema:
+    {
+        "kpi_scores": {"clarity": 8, "confidence": 8, "objection_handling": 8, "closing": 8},
+        "key_takeaways": ["point 1", "point 2"],
+        "manager_coaching_playbook": "Actionable advice for the manager."
+    }
+    """
+    
+    user_prompt = f"Analyze this {type} interaction for Sales Rep: {rep_name}.\n\nText: {content}"
+    
+    try:
+        response = client.chat.completions.create(
+            model="llama3-8b-8192", 
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ], 
+            temperature=0.1, 
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        # Fallback if the API times out or throws an error during demo
+        return {
+            "kpi_scores": {"clarity": 5, "confidence": 5, "objection_handling": 5, "closing": 5},
+            "key_takeaways": ["API Analysis Failed", str(e)],
+            "manager_coaching_playbook": "System encountered an API error. Please try syncing again."
+        }
 
 # --- VIEWS ---
 
@@ -91,7 +116,6 @@ def view_ceo_command_center():
     st.header("🏢 CEO Command Center")
     st.markdown("The Company Brain: Cross-departmental synthesis powered by Gemini OS.")
     
-    # 1. TOP LEVEL FINANCIALS (CFO Hub Preview)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Projected ARR", f"${st.session_state.ceo_metrics['ARR']:,.0f}", "+12% YoY")
     c2.metric("Cash Runway", f"{st.session_state.ceo_metrics['Cash_Runway_Months']} Months", "-1 Month")
@@ -100,7 +124,6 @@ def view_ceo_command_center():
     
     st.divider()
 
-    # 2. AUTONOMOUS AGENT MONITORING
     st.subheader("🤖 Autonomous Workspace Agents (Live Status)")
     st.markdown("Agents are currently monitoring Google Workspace and internal databases.")
     
@@ -114,7 +137,6 @@ def view_ceo_command_center():
 
     st.divider()
 
-    # 3. EXECUTIVE SYNTHESIS (The real power of the 2026 platform)
     st.subheader("🧠 Gemini Executive Synthesis")
     st.markdown("Cross-departmental friction points identified by the Company Brain:")
     
@@ -137,7 +159,6 @@ def view_sales_rep():
     with col2:
         if st.button("✨ Auto-Sync with Gemini (Gmail & Meet)", type="primary"):
             with st.spinner("Gemini is reading your Google Workspace inbox..."):
-                # Simulating the agent finding an email
                 mock_scraped_email = f"Hey {selected_rep}, thanks for the proposal. I have a few questions about the inverter warranties before we sign. Can we chat tomorrow?"
                 analysis_data = analyze_interaction_with_ai(mock_scraped_email, selected_rep, type="email")
                 
@@ -189,41 +210,21 @@ def view_head_of_bd():
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("🎯 Targeted AI Coaching")
-        for log in st.session_state.interactions:
+        for log in reversed(st.session_state.interactions):
             icon = "🚨" if "CRITICAL" in log['Analysis']['manager_coaching_playbook'] else "💡"
             with st.expander(f"{icon} Coach {log['Rep']} - {log['Type']}"):
                 st.write(log['Analysis']['manager_coaching_playbook'])
 
     with c2:
         st.subheader("🗄️ Team Comm Archive")
-        for log in st.session_state.interactions:
+        for log in reversed(st.session_state.interactions):
             with st.expander(f"🎙️ {log['Rep']} (Deal {log['Deal_ID']})"):
                 st.markdown(f"**Content:**\n\n*{log['Content']}*")
 
 # --- MAIN APP ROUTING ---
 st.sidebar.title("🧠 The Company Brain")
 
-# Creating the profiles you mentioned
 app_mode = st.sidebar.radio("Access Profile:", [
     "CEO Command Center",
     "Head of BD (Sales Hub)", 
-    "Operations Director",
-    "Sales Rep Terminal"
-])
-st.sidebar.divider()
-
-if st.sidebar.button("🔄 Reset Global Database"):
-    for key in required_keys:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.rerun()
-
-# Router Logic
-if app_mode == "CEO Command Center":
-    view_ceo_command_center()
-elif app_mode == "Sales Rep Terminal":
-    view_sales_rep()
-elif app_mode == "Operations Director":
-    view_operations_board()
-elif app_mode == "Head of BD (Sales Hub)":
-    view_head_of_bd()
+    "Operations Director
