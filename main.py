@@ -169,10 +169,11 @@ def view_admin_dashboard():
         kpi_chart_data = pd.DataFrame({
             'KPI': ['Clarity', 'Confidence', 'Objections', 'Closing'],
             'Score': [clarity_avg, confidence_avg, objection_avg, closing_avg]
-        })
-        st.altair_chart(
-            st.line_chart(kpi_chart_data.set_index('KPI'), y='Score', height=300) if total_calls == 0 else st.bar_chart(kpi_chart_data.set_index('KPI'), height=300)
-        )
+        }).set_index('KPI')
+        
+        # FIXED: Removed the st.altair_chart wrapper and just render the native bar chart.
+        st.bar_chart(kpi_chart_data, y='Score', height=300)
+        
         if total_calls == 0:
              st.caption("Awaiting call data to populate KPI distribution.")
 
@@ -216,7 +217,7 @@ st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Manager Dashboard"])
 st.sidebar.divider()
 
-# Added a reset button to easily clear cache during testing/demos
+# Reset button to easily clear cache during testing/demos
 if st.sidebar.button("🔄 Reset POC Data"):
     init_db()
     st.rerun()
