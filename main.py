@@ -1,77 +1,80 @@
 import streamlit as st
 import pandas as pd
-from openai import OpenAI
+from groq import Groq
+from openai import OpenAI # Used specifically for Whisper transcription
 import os
 
 # --- INITIAL SETUP ---
-st.set_page_config(page_title="Sales AI POC", layout="wide")
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"]) # Or your preferred provider
+st.set_page_config(page_title="Sales Intelligence POC", layout="wide")
 
-# --- SIMPLE CRM MOCK ---
+# Initialize Clients (Pulling from Streamlit Secrets)
+groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+whisper_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# --- MOCK CRM DATA ---
 CRM_DATA = {
-    "Users": ["Monique Bruce", "Alex Rivera"],
-    "Clients": ["TechCorp Solutions", "Global Logistics Inc."]
+    "Users": ["Monique Bruce", "Team Member A"],
+    "Clients": ["TechCorp Solutions", "Global Logistics Inc.", "Retail Giant"]
 }
 
 # --- UI HEADER ---
 st.title("📞 Sales Call Intelligence Dashboard")
-st.subheader("POC: Transcription & Performance Scoring")
+st.subheader("High-Performance Transcription & AI Scoring")
 
 with st.sidebar:
-    st.header("Session Context")
-    rep = st.selectbox("Sales Representative", CRM_DATA["Users"])
-    client_name = st.selectbox("Client/Lead", CRM_DATA["Clients"])
+    st.header("Session Settings")
+    rep = st.selectbox("Select Sales Rep", CRM_DATA["Users"])
+    client_name = st.selectbox("Select Client", CRM_DATA["Clients"])
     st.divider()
-    st.info("This POC uses Whisper for transcription and AI for scoring.")
+    st.success("Connected to Groq LPU™")
 
 # --- STEP 1: UPLOAD ---
-uploaded_file = st.file_file("Upload Sales Call Audio", type=["mp3", "wav", "m4a"])
+uploaded_file = st.file_uploader("Upload Sales Call Audio", type=["mp3", "wav", "m4a"])
 
 if uploaded_file:
     st.audio(uploaded_file)
     
-    if st.button("Analyze Call"):
-        with st.spinner("Transcribing and analyzing..."):
+    if st.button("🚀 Run Analysis"):
+        with st.spinner("Processing with Groq Speed..."):
             
             # --- STEP 2: TRANSCRIPTION (WHISPER) ---
-            # In a real POC, we'd send the file to Whisper
-            # transcript = client.audio.transcriptions.create(model="whisper-1", file=uploaded_file)
-            transcript_text = "Mock Transcript: Hello, this is Monique from the systems team. I'm calling to discuss our CRM automation..." # Placeholder
+            # Standard Whisper API call
+            transcript = whisper_client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=uploaded_file
+            )
+            transcript_text = transcript.text
             
-            # --- STEP 3: AI ANALYSIS ---
-            # Here we plug in your existing scoring logic
-            prompt = f"""
-            Analyze the following sales call transcript for:
-            1. Clarity (1-10)
-            2. Confidence (1-10)
-            3. Objection Handling (1-10)
+            # --- STEP 3: AI ANALYSIS (GROQ) ---
+            # Using Llama 3 or Mixtral for blazing fast scoring
+            completion = groq_client.chat.completions.create(
+                model="llama3-8b-8192",
+                messages=[
+                    {"role": "system", "content": "You are a sales coaching expert. Analyze transcripts for Clarity, Confidence, and Objection Handling. Provide scores out of 10 and brief feedback."},
+                    {"role": "user", "content": f"Analyze this transcript for {rep} calling {client_name}: {transcript_text}"}
+                ],
+                temperature=0.5,
+            )
             
-            Transcript: {transcript_text}
-            
-            Provide the output in a clean format.
-            """
-            
-            # AI Response Call here...
-            analysis_result = "8/10 Clarity. Strong opening. Needs better closing."
+            analysis_output = completion.choices[0].message.content
 
-            # --- STEP 4: DASHBOARD DISPLAY ---
-            col1, col2 = st.columns(2)
+            # --- STEP 4: DISPLAY DASHBOARD ---
+            st.divider()
+            col1, col2 = st.columns([1, 1])
             
             with col1:
-                st.markdown("### Transcript")
-                st.text_area("Live Text", transcript_text, height=300)
+                st.markdown("### 📝 Transcript")
+                st.info(transcript_text)
                 
             with col2:
-                st.markdown("### Performance Score")
-                st.metric("Overall Score", "84%")
-                st.write(analysis_result)
+                st.markdown("### 📊 AI Performance Review")
+                st.markdown(analysis_output)
                 
-                # Simple chart for visualization
+                # Visual Chart
                 chart_data = pd.DataFrame({
                     'Metric': ['Clarity', 'Confidence', 'Objections'],
-                    'Score': [8, 9, 7]
+                    'Score': [8, 7, 9] # In MVP, you can parse these from the AI response
                 })
                 st.bar_chart(chart_data, x='Metric', y='Score')
-
 else:
-    st.warning("Please upload an audio file to begin the analysis.")
+    st.info("Upload a recording to see the AI scoring engine in action.")
