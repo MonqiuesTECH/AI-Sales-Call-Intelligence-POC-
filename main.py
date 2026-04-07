@@ -14,14 +14,13 @@ except KeyError:
     st.stop()
 
 # --- MOCK DATABASE (SESSION STATE) ---
-# This simulates your backend (Postgres/MongoDB) for the POC
 if 'crm_deals' not in st.session_state:
     st.session_state.crm_deals = pd.DataFrame({
         'Deal_ID': ['D-101', 'D-102', 'D-103'],
         'Client': ['TechCorp', 'Global Logistics', 'Retail Giant'],
         'Rep': ['Monique Bruce', 'Alex Rivera', 'Monique Bruce'],
         'Stage': ['Discovery', 'Negotiation', 'Closed Won'],
-        'Value': ['$50,000', '$120,000', '$15,000']
+        'Value': [50000, 120000, 15000] # Changed to integers for metric calculations
     })
 
 if 'call_logs' not in st.session_state:
@@ -29,7 +28,6 @@ if 'call_logs' not in st.session_state:
 
 # --- AI PROCESSING LOGIC ---
 def analyze_call_with_ai(transcript_text, rep_name):
-    """Forces Groq to return strict JSON for the CRM database"""
     prompt = f"""
     Analyze the following sales call transcript for {rep_name}.
     You must evaluate the 4 core KPIs on a scale of 1-10.
@@ -65,23 +63,27 @@ def view_sales_rep():
     st.header("👤 Sales Representative Hub")
     st.markdown("Manage your deals and log new meeting intelligence.")
     
-    # 1. CRM Table
+    # Formatting value for display
+    display_df = st.session_state.crm_deals.copy()
+    display_df['Value'] = display_df['Value'].apply(lambda x: f"${x:,.0f}")
+    
     st.subheader("Active Deals")
-    st.dataframe(st.session_state.crm_deals, use_container_width=True, hide_index=True)
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
     
     st.divider()
     
-    # 2. Call Logging (The AI Engine)
     st.subheader("🎙️ Log a Call (Zoom/Meet Sync Mock)")
     
     col1, col2 = st.columns([1, 2])
     with col1:
-        selected_deal = st.selectbox("Associate with Deal", st.session_state.crm_deals['Deal_ID'])
+        # Get reps for the dropdown
+        rep_list = st.session_state.crm_deals['Rep'].unique()
+        selected_rep = st.selectbox("Sales Representative", rep_list)
+        selected_deal = st.selectbox("Associate with Deal", st.session_state.crm_deals[st.session_state.crm_deals['Rep'] == selected_rep]['Deal_ID'])
         uploaded_file = st.file_uploader("Upload Call Audio", type=["mp3", "wav", "m4a"])
     
     if uploaded_file and st.button("Transcribe & Analyze"):
         with st.spinner("Transcribing via Groq Whisper-v3..."):
-            # Whisper Transcription
             transcription = client.audio.transcriptions.create(
                 file=(uploaded_file.name, uploaded_file.read()),
                 model="whisper-large-v3",
@@ -89,11 +91,10 @@ def view_sales_rep():
             )
             
         with st.spinner("Extracting KPIs via Llama 3..."):
-            # AI Analysis
-            analysis_data = analyze_call_with_ai(transcription, "Sales Rep")
+            analysis_data = analyze_call_with_ai(transcription, selected_rep)
             
-            # Save to mock database
             st.session_state.call_logs.append({
+                "Rep": selected_rep,
                 "Deal_ID": selected_deal,
                 "Transcript": transcription,
                 "Analysis": analysis_data
@@ -101,7 +102,6 @@ def view_sales_rep():
             
         st.success("Call logged and analyzed successfully!")
         
-        # Display Results to Rep
         st.subheader("🧠 Post-Call Intelligence")
         scores = analysis_data["kpi_scores"]
         
@@ -124,31 +124,88 @@ def view_admin_dashboard():
     st.header("👑 Sales Manager Dashboard")
     st.markdown("Overview of team activity, KPI trends, and adaptive learning needs.")
     
-    if not st.session_state.call_logs:
-        st.warning("No call data available yet. Have a rep upload a call to populate the dashboard.")
-        return
-        
-    # Aggregate Data
-    all_scores = []
-    for log in st.session_state.call_logs:
-        all_scores.append(log['Analysis']['kpi_scores'])
+    # --- 1. TOP LEVEL METRICS (Always visible, defaults to 0) ---
+    total_pipeline = st.session_state.crm_deals['Value'].sum()
+    total_calls = len(st.session_state.call_logs)
     
-    df_scores = pd.DataFrame(all_scores)
+    # Calculate averages safely to avoid division by zero
+    if total_calls > 0:
+        all_scores = [log['Analysis']['kpi_scores'] for log in st.session_state.call_logs]
+        df_scores = pd.DataFrame(all_scores)
+        avg_overall = df_scores.values.mean()
+        clarity_avg = df_scores['clarity'].mean()
+        confidence_avg = df_scores['confidence'].mean()
+        objection_avg = df_scores['objection_handling'].mean()
+        closing_avg = df_scores['closing'].mean()
+    else:
+        avg_overall = 0.0
+        clarity_avg = 0.0
+        confidence_avg = 0.0
+        objection_avg = 0.0
+        closing_avg = 0.0
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Calls Analyzed", total_calls)
+    m2.metric("Active Pipeline Value", f"${total_pipeline:,.0f}")
+    m3.metric("Team Overall KPI Score", f"{avg_overall:.1f} / 10")
+    m4.metric("Active Coaching Alerts", total_calls) # 1 alert per call in this POC
     
+    st.divider()
+
+    # --- 2. KPI BREAKDOWN & TRENDS ---
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Team KPI Averages")
-        avg_scores = df_scores.mean().reset_index()
-        avg_scores.columns = ['KPI', 'Average Score']
-        st.bar_chart(avg_scores, x='KPI', y='Average Score', color="#D4AF37") # A touch of gold
-        
+        st.subheader("Team KPI Performance")
+        kpi_chart_data = pd.DataFrame({
+            'KPI': ['Clarity', 'Confidence', 'Objections', 'Closing'],
+            'Score': [clarity_avg, confidence_avg, objection_avg, closing_avg]
+        })
+        # If all scores are 0, Streamlit might scale the chart weirdly. We force a 0-10 scale.
+        st.altair_chart(
+            st.line_chart(kpi_chart_data.set_index('KPI'), y='Score', height=300) if total_calls == 0 else st.bar_chart(kpi_chart_data.set_index('KPI'), height=300)
+        )
+        if total_calls == 0:
+             st.caption("Awaiting call data to populate KPI distribution.")
+
     with col2:
-        st.subheader("Recent Coaching Needs")
-        for idx, log in enumerate(st.session_state.call_logs):
-            deal = log['Deal_ID']
-            suggestion = log['Analysis']['adaptive_suggestion']
-            st.error(f"**Deal {deal}:** {suggestion}")
+        st.subheader("Historical Progress (Mock Trend)")
+        # Demonstrating what a trend chart looks like for the POC
+        trend_data = pd.DataFrame({
+            "Week": ["W1", "W2", "W3", "Current"],
+            "Avg Score": [6.5, 7.0, 7.2, avg_overall if avg_overall > 0 else 7.2] 
+        }).set_index("Week")
+        st.line_chart(trend_data, height=300)
+
+    st.divider()
+
+    # --- 3. REP ACTIVITY & ADAPTIVE COACHING ---
+    col3, col4 = st.columns(2)
+    
+    with col3:
+        st.subheader("Call Activity by Rep")
+        # Initialize all reps with 0 calls
+        rep_counts = {rep: 0 for rep in st.session_state.crm_deals['Rep'].unique()}
+        
+        # Add actual call counts
+        for log in st.session_state.call_logs:
+            rep_counts[log['Rep']] = rep_counts.get(log['Rep'], 0) + 1
+            
+        activity_df = pd.DataFrame(list(rep_counts.items()), columns=['Sales Rep', 'Total Calls'])
+        st.dataframe(activity_df, use_container_width=True, hide_index=True)
+
+    with col4:
+        st.subheader("Adaptive Performance Tracking")
+        if total_calls == 0:
+            st.info("No actionable intelligence generated yet. Waiting for system to process incoming calls.")
+        else:
+            for idx, log in enumerate(st.session_state.call_logs):
+                rep = log['Rep']
+                deal = log['Deal_ID']
+                suggestion = log['Analysis']['adaptive_suggestion']
+                
+                # Highlight in red/warning to show it requires manager attention
+                st.warning(f"**Action Required for {rep} (Deal {deal}):**\n\n{suggestion}")
 
 # --- MAIN APP ROUTING ---
 st.sidebar.title("Navigation")
