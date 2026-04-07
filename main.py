@@ -14,7 +14,6 @@ except KeyError:
 
 # --- MOCK DATABASE (SOLAR COMPANY PRE-LOAD) ---
 def init_db():
-    # Deals suited for a ~$10M/yr solar company
     st.session_state.crm_deals = pd.DataFrame({
         'Deal_ID': ['D-101', 'D-102', 'D-103', 'D-104', 'D-105'],
         'Client': ['SunCity Commercial Array', 'Oakridge HOA Residential', 'GreenTech Warehouse', 'Horizon Farms Microgrid', 'Metro Park Facilities'],
@@ -25,7 +24,6 @@ def init_db():
     
     st.session_state.bd_view = "overview" 
 
-    # Marketing Data tailored for Solar Lead Gen
     st.session_state.marketing_data = pd.DataFrame({
         "Channel": ["Google Local Service Ads", "Door-to-Door Canvassing", "Facebook Lead Forms", "Commercial Outbound"],
         "Traffic/Volume": ["15k impressions", "800 doors knocked", "12k clicks", "5k emails sent"],
@@ -33,7 +31,6 @@ def init_db():
         "AI Health Score (%)": [88, 71, 62, 78] 
     })
 
-    # Pre-loading fake interactions so the dashboard looks active immediately
     st.session_state.interactions = [
         {
             "Type": "Call", "Direction": "Inbound", "Rep": "Sarah Chen", "Deal_ID": "D-103",
@@ -228,7 +225,6 @@ def view_head_of_bd():
         else:
             st.caption("Archive is currently empty.")
 
-
 def view_bd_details():
     st.header("📊 Deep Dive Analytics")
     if st.button("🔙 Back to Team Overview"):
@@ -241,11 +237,18 @@ def view_bd_details():
     
     with tab_reps:
         st.subheader("Individual Rep Performance vs. Target (75%)")
+        
+        # FIX: Dynamically slice the mock arrays so they ALWAYS match the number of reps in the browser memory.
+        unique_reps = st.session_state.crm_deals['Rep'].unique()
+        mock_interactions = [14, 22, 35, 12, 19, 8, 10, 5, 15, 20]
+        mock_pipelines = ["$350,000", "$120,000", "$850,000", "$420,000", "$210,000", "$100k", "$50k", "$75k", "$80k", "$90k"]
+        mock_ratings = [82, 45, 88, 50, 76, 80, 90, 85, 78, 60]
+
         rep_data = pd.DataFrame({
-            "Rep Name": st.session_state.crm_deals['Rep'].unique(),
-            "Total Interactions": [14, 22, 35, 12, 19], 
-            "Pipeline Controlled": ["$350,000", "$120,000", "$850,000", "$420,000", "$210,000"],
-            "AI Sales Rating": [82, 45, 88, 50, 76] 
+            "Rep Name": unique_reps,
+            "Total Interactions": mock_interactions[:len(unique_reps)], 
+            "Pipeline Controlled": mock_pipelines[:len(unique_reps)],
+            "AI Sales Rating": mock_ratings[:len(unique_reps)] 
         })
         st.dataframe(rep_data, use_container_width=True, hide_index=True)
         st.info("💡 **AI Insight:** David Thorne's Sales Rating is at 50%. Review his archive; he is consistently struggling with technical objection handling regarding the Federal ITC.")
@@ -274,6 +277,7 @@ st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Head of BD Dashboard"])
 st.sidebar.divider()
 
+# Important Demo Button
 if st.sidebar.button("🔄 Reset to Solar Defaults"):
     for key in ['crm_deals', 'interactions', 'bd_view', 'marketing_data']:
         if key in st.session_state:
