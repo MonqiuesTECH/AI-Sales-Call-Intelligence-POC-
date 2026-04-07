@@ -39,27 +39,51 @@ def init_db():
         "AI Health Score (%)": [88, 71, 62, 78] 
     })
 
+    # RESTORED: The Full Spectrum of Extreme Variance Transcripts
     st.session_state.interactions = [
         {
             "Type": "Call", "Direction": "Outbound", "Rep": "Elena Rostova", "Deal_ID": "D-105",
-            "Content": "Prospect: 'I read that the solar tax credit is only 30%.' \n\nElena: 'No, listen to me, if you sign today I guarantee you a 100% write-off.'",
-            "Analysis": {"kpi_scores": {"clarity": 2, "confidence": 9, "objection_handling": 1, "closing": 1}, "key_takeaways": ["Violated federal compliance"], "manager_coaching_playbook": "🚨 CRITICAL: Elena provided fraudulent tax advice."}
+            "Content": "Prospect: 'I read that the solar tax credit is only 30%.' \n\nElena: 'No, listen to me, if you sign today I guarantee you a 100% write-off. My buddy does taxes. Just sign the DocuSign right now, stop overthinking it, you're losing me money by stalling.'",
+            "Analysis": {
+                "kpi_scores": {"clarity": 2, "confidence": 9, "objection_handling": 1, "closing": 1},
+                "key_takeaways": ["Violated federal compliance (false tax advice)", "Aggressive and hostile tone", "Zero active listening"],
+                "manager_coaching_playbook": "🚨 CRITICAL ALERT: Immediate termination review required. Elena provided fraudulent tax advice and exhibited severely aggressive behavior towards a prospect. Halt all outbound calling privileges immediately."
+            }
+        },
+        {
+            "Type": "Call", "Direction": "Inbound", "Rep": "David Thorne", "Deal_ID": "D-104",
+            "Content": "Prospect: 'How does the Enphase 5P battery handle surge loads if the grid goes down?' \n\nDavid: 'Uh, yeah, so... the battery is good. It holds power. I think it can run a fridge? Let me... I'd have to Google the surge thing. It's basically a big battery.'",
+            "Analysis": {
+                "kpi_scores": {"clarity": 4, "confidence": 2, "objection_handling": 2, "closing": 3},
+                "key_takeaways": ["Severe lack of product knowledge", "Lost prospect trust immediately", "Hesitant and anxious tone"],
+                "manager_coaching_playbook": "David is severely struggling with technical competence, causing deal collapse. Mandate completion of the Enphase Storage Certification before his next solo pitch. Pair him with Sarah for shadowing this week."
+            }
+        },
+        {
+            "Type": "Call", "Direction": "Outbound", "Rep": "Alex Rivera", "Deal_ID": "D-102",
+            "Content": "Prospect: 'The numbers look okay, but I need to talk to my wife.' \n\nAlex: 'Yeah, totally understandable! Wives are the real bosses, right? Take your time, talk to her, and just shoot me an email whenever you guys figure it out. Have a great weekend!'",
+            "Analysis": {
+                "kpi_scores": {"clarity": 7, "confidence": 6, "objection_handling": 2, "closing": 1},
+                "key_takeaways": ["Failed to isolate the objection", "Zero urgency created", "Did not set a follow-up meeting"],
+                "manager_coaching_playbook": "Alex builds great rapport but completely folds at the close. Coach him on the 'Spouse Objection' framework. He needs to secure a hard calendar invite for a follow-up rather than leaving the ball in the prospect's court."
+            }
         },
         {
             "Type": "Call", "Direction": "Inbound", "Rep": "Sarah Chen", "Deal_ID": "D-103",
-            "Content": "Prospect: 'I'm worried about the panels voiding my roof warranty.' \n\nSarah: 'I completely understand. We use a proprietary triple-flashing mount to maintain GAF warranties. Let me send the spec.'",
-            "Analysis": {"kpi_scores": {"clarity": 9, "confidence": 9, "objection_handling": 10, "closing": 8}, "key_takeaways": ["Excellent technical knowledge"], "manager_coaching_playbook": "Sarah handled technical objections perfectly."}
+            "Content": "Prospect: 'I'm worried about the panels voiding my roof warranty.' \n\nSarah: 'I completely understand that concern, John. We actually use a proprietary triple-flashing mount system specifically designed to maintain GAF roof warranties. Let me pull up the engineering spec sheet for you right now so you can see how we seal the penetrations.'",
+            "Analysis": {
+                "kpi_scores": {"clarity": 9, "confidence": 9, "objection_handling": 10, "closing": 8},
+                "key_takeaways": ["Excellent technical knowledge", "Validates concerns before answering", "Uses proof-sources effectively"],
+                "manager_coaching_playbook": "Sarah is performing exceptionally. Consider having her lead the next team meeting on objection handling regarding roof warranties to help upskill David and Alex."
+            }
         }
     ]
 
     st.session_state.ceo_metrics = {"ARR": 10400000, "Cash_Runway_Months": 14, "Burn_Rate": 450000, "Active_Agents": 3}
-    
-    # Message Brokers & Routers
     st.session_state.push_notifications = [] 
     st.session_state.task_evidence = [] 
     st.session_state.bd_view = "overview"
 
-# --- BULLETPROOF INITIALIZATION ---
 required_keys = ['crm_deals', 'ops_tasks', 'marketing_data', 'interactions', 'ceo_metrics', 'push_notifications', 'task_evidence', 'bd_view']
 for key in required_keys:
     if key not in st.session_state:
@@ -97,7 +121,7 @@ def view_ceo_command_center():
     st.error("🚨 **Systemic Risk Detected (Sales vs. Ops):** Deal D-103 (GreenTech Warehouse) was marked 'Closed Won', but Operations is STUCK on Permitting. Revenue recognition will be delayed. Recommend immediate COO intervention.")
     st.warning("⚠️ **Marketing vs. Sales Alignment:** Facebook Lead Forms are generating high volume (310 leads), but AI Sales Ratings for these leads average 45%. Recommend Marketing shift budget to Google Local Service Ads.")
 
-# --- 2. EMPLOYEE TERMINAL (Sales & Ops) ---
+# --- 2. EMPLOYEE TERMINAL ---
 def view_employee_terminal():
     st.header("👤 Employee Terminal (Sales & Field Ops)")
     st.markdown("Log intelligence, sync emails, and clear operational roadblocks.")
@@ -170,7 +194,6 @@ def view_operations_board():
     c4.metric("Evidence Uploaded", len(st.session_state.task_evidence))
 
     st.divider()
-
     st.subheader("📈 Strategic Operations Forecast (AI)")
     st.info("**Forecast:** Based on the trailing 30-day sales velocity ($850k closed), current operational capacity is running at **92% utilization**. If Deals D-101 and D-104 close this week as projected by Sales, the 'Engineering' queue will exceed capacity by 15%, causing a 14-day installation delay. \n\n**Action Required:** Pre-approve overtime for the engineering desk immediately to protect the 85% Ops Flow Health target.")
     st.divider()
@@ -212,7 +235,7 @@ def view_operations_board():
                 st.markdown(f"**📎 Attached Files:** {', '.join(ev['Files'])}")
                 st.info("🤖 **Gemini Analysis:** Evidence verified. The attached media matches the project requirements. Proceed to next stage.")
 
-# --- 4. HEAD OF BD DASHBOARD (RESTORED FULLY) ---
+# --- 4. HEAD OF BD DASHBOARD ---
 def view_bd_details():
     st.header("📊 Deep Dive Analytics")
     if st.button("🔙 Back to Team Overview"):
@@ -224,8 +247,9 @@ def view_bd_details():
     with tab_reps:
         st.subheader("Individual Rep Performance vs. Target (75%)")
         unique_reps = st.session_state.crm_deals['Rep'].unique()
+        # Mapped to match: Monique, Alex, Sarah, David, Elena
         mock_pipelines = ["$350,000", "$120,000", "$850,000", "$420,000", "$210,000 (At Risk)"]
-        mock_ratings = [85, 40, 92, 35, 12] 
+        mock_ratings = [85, 60, 92, 35, 12] 
 
         rep_data = pd.DataFrame({
             "Rep Name": unique_reps,
@@ -233,7 +257,7 @@ def view_bd_details():
             "AI Sales Rating": mock_ratings[:len(unique_reps)] 
         })
         st.dataframe(rep_data, use_container_width=True, hide_index=True)
-        st.error("🚨 **AI Insight:** Elena Rostova (12%) has committed a compliance violation. David Thorne (35%) is failing technical product queries. Intervene immediately.")
+        st.error("🚨 **AI Insight:** Elena Rostova (12%) has committed a compliance violation. David Thorne (35%) is failing technical product queries. Alex Rivera (60%) is failing to set hard follow-ups. Intervene immediately.")
 
     with tab_marketing:
         st.subheader("Top of Funnel Health (AI Monitored)")
@@ -262,10 +286,10 @@ def view_head_of_bd():
             st.rerun()
 
     total_calls = sum(1 for i in st.session_state.interactions if i['Type'] == 'Call')
-    total_emails = sum(1 for i in st.session_state.interactions if i['Type'] == 'Email')
     clean_values = st.session_state.crm_deals['Value'].astype(str).str.replace(r'[$,]', '', regex=True)
     total_pipeline = pd.to_numeric(clean_values, errors='coerce').sum()
     
+    # Calculate average rating based on the live transcripts
     overall_rating = 0
     if st.session_state.interactions:
         total_score = sum((sum(log['Analysis']['kpi_scores'].values()) / 40) * 100 for log in st.session_state.interactions)
@@ -281,7 +305,7 @@ def view_head_of_bd():
     m2.metric("Active Solar Pipeline", f"${total_pipeline:,.0f}")
     delta_str = f"{overall_rating - 75:+.1f}% vs Target" if overall_rating > 0 else ""
     m3.metric("AI Sales Rating", f"{overall_rating:.1f}%" if overall_rating > 0 else "0%", delta_str, delta_color="normal" if overall_rating >= 75 else "inverse")
-    m4.metric("Critical Alerts", "1", delta="Elena Rostova", delta_color="inverse")
+    m4.metric("Critical Alerts", "2", delta="Elena, David", delta_color="inverse")
     
     st.divider()
 
