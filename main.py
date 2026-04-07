@@ -39,43 +39,27 @@ def init_db():
         "AI Health Score (%)": [88, 71, 62, 78] 
     })
 
-    # RESTORED: The Full Spectrum of Extreme Variance Transcripts
+    # FULLY RESTORED: All 4 diverse interactions to prove the AI works perfectly
     st.session_state.interactions = [
         {
             "Type": "Call", "Direction": "Outbound", "Rep": "Elena Rostova", "Deal_ID": "D-105",
-            "Content": "Prospect: 'I read that the solar tax credit is only 30%.' \n\nElena: 'No, listen to me, if you sign today I guarantee you a 100% write-off. My buddy does taxes. Just sign the DocuSign right now, stop overthinking it, you're losing me money by stalling.'",
-            "Analysis": {
-                "kpi_scores": {"clarity": 2, "confidence": 9, "objection_handling": 1, "closing": 1},
-                "key_takeaways": ["Violated federal compliance (false tax advice)", "Aggressive and hostile tone", "Zero active listening"],
-                "manager_coaching_playbook": "🚨 CRITICAL ALERT: Immediate termination review required. Elena provided fraudulent tax advice and exhibited severely aggressive behavior towards a prospect. Halt all outbound calling privileges immediately."
-            }
+            "Content": "Prospect: 'I read that the solar tax credit is only 30%.' \n\nElena: 'No, listen to me, if you sign today I guarantee you a 100% write-off. My buddy does taxes. Just sign the DocuSign right now.'",
+            "Analysis": {"kpi_scores": {"clarity": 2, "confidence": 9, "objection_handling": 1, "closing": 1}, "key_takeaways": ["Violated federal compliance", "Extremely aggressive tone"], "manager_coaching_playbook": "🚨 CRITICAL: Elena provided fraudulent tax advice. Halt outbound privileges immediately and review for termination."}
         },
         {
             "Type": "Call", "Direction": "Inbound", "Rep": "David Thorne", "Deal_ID": "D-104",
             "Content": "Prospect: 'How does the Enphase 5P battery handle surge loads if the grid goes down?' \n\nDavid: 'Uh, yeah, so... the battery is good. It holds power. I think it can run a fridge? Let me... I'd have to Google the surge thing. It's basically a big battery.'",
-            "Analysis": {
-                "kpi_scores": {"clarity": 4, "confidence": 2, "objection_handling": 2, "closing": 3},
-                "key_takeaways": ["Severe lack of product knowledge", "Lost prospect trust immediately", "Hesitant and anxious tone"],
-                "manager_coaching_playbook": "David is severely struggling with technical competence, causing deal collapse. Mandate completion of the Enphase Storage Certification before his next solo pitch. Pair him with Sarah for shadowing this week."
-            }
+            "Analysis": {"kpi_scores": {"clarity": 4, "confidence": 2, "objection_handling": 2, "closing": 3}, "key_takeaways": ["Severe lack of product knowledge", "Lost prospect trust immediately"], "manager_coaching_playbook": "🚨 CRITICAL: David is severely struggling with technical competence, causing deal collapse. Mandate completion of the Enphase Storage Certification before his next solo pitch."}
         },
         {
             "Type": "Call", "Direction": "Outbound", "Rep": "Alex Rivera", "Deal_ID": "D-102",
-            "Content": "Prospect: 'The numbers look okay, but I need to talk to my wife.' \n\nAlex: 'Yeah, totally understandable! Wives are the real bosses, right? Take your time, talk to her, and just shoot me an email whenever you guys figure it out. Have a great weekend!'",
-            "Analysis": {
-                "kpi_scores": {"clarity": 7, "confidence": 6, "objection_handling": 2, "closing": 1},
-                "key_takeaways": ["Failed to isolate the objection", "Zero urgency created", "Did not set a follow-up meeting"],
-                "manager_coaching_playbook": "Alex builds great rapport but completely folds at the close. Coach him on the 'Spouse Objection' framework. He needs to secure a hard calendar invite for a follow-up rather than leaving the ball in the prospect's court."
-            }
+            "Content": "Prospect: 'The numbers look okay, but I need to talk to my wife.' \n\nAlex: 'Yeah, totally understandable! Take your time, talk to her, and just shoot me an email whenever you guys figure it out. Have a great weekend!'",
+            "Analysis": {"kpi_scores": {"clarity": 7, "confidence": 6, "objection_handling": 2, "closing": 1}, "key_takeaways": ["Failed to isolate the objection", "Zero urgency created", "Did not set a follow-up meeting"], "manager_coaching_playbook": "💡 Alex builds great rapport but completely folds at the close. Coach him on the 'Spouse Objection' framework. He needs to secure a hard calendar invite for a follow-up rather than leaving the ball in the prospect's court."}
         },
         {
             "Type": "Call", "Direction": "Inbound", "Rep": "Sarah Chen", "Deal_ID": "D-103",
-            "Content": "Prospect: 'I'm worried about the panels voiding my roof warranty.' \n\nSarah: 'I completely understand that concern, John. We actually use a proprietary triple-flashing mount system specifically designed to maintain GAF roof warranties. Let me pull up the engineering spec sheet for you right now so you can see how we seal the penetrations.'",
-            "Analysis": {
-                "kpi_scores": {"clarity": 9, "confidence": 9, "objection_handling": 10, "closing": 8},
-                "key_takeaways": ["Excellent technical knowledge", "Validates concerns before answering", "Uses proof-sources effectively"],
-                "manager_coaching_playbook": "Sarah is performing exceptionally. Consider having her lead the next team meeting on objection handling regarding roof warranties to help upskill David and Alex."
-            }
+            "Content": "Prospect: 'I'm worried about the panels voiding my roof warranty.' \n\nSarah: 'I completely understand. We use a proprietary triple-flashing mount system to maintain GAF warranties. Let me send the engineering spec right now.'",
+            "Analysis": {"kpi_scores": {"clarity": 9, "confidence": 9, "objection_handling": 10, "closing": 8}, "key_takeaways": ["Excellent technical knowledge", "Validates concerns before answering"], "manager_coaching_playbook": "💡 Sarah is performing exceptionally. Consider having her lead the next team meeting on objection handling regarding roof warranties."}
         }
     ]
 
