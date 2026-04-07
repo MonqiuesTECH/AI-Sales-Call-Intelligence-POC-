@@ -14,7 +14,6 @@ except KeyError:
 
 # --- MOCK DATABASE (SOLAR + OPS PRE-LOAD) ---
 def init_db():
-    # 1. CRM DEALS
     st.session_state.crm_deals = pd.DataFrame({
         'Deal_ID': ['D-101', 'D-102', 'D-103', 'D-104', 'D-105'],
         'Client': ['SunCity Commercial Array', 'Oakridge HOA Residential', 'GreenTech Warehouse', 'Horizon Farms Microgrid', 'Metro Park Facilities'],
@@ -23,7 +22,7 @@ def init_db():
         'Value': [350000, 120000, 850000, 420000, 210000] 
     })
     
-    # 2. INTERNAL OPERATIONS TASKS (The Monday.com Clone Data)
+    # Notice the Timeline uses pd.to_datetime().dt.date to ensure it is a native Date object
     st.session_state.ops_tasks = pd.DataFrame({
         'Task_ID': ['T-01', 'T-02', 'T-03', 'T-04', 'T-05'],
         'Deal_ID': ['D-103', 'D-103', 'D-101', 'D-105', 'Internal'],
@@ -31,12 +30,11 @@ def init_db():
         'Owner': ['Ops Team', 'Procurement', 'Alex Rivera', 'Engineering', 'Monique Bruce'],
         'Status': ['Working on it', 'Done', 'Stuck', 'To Do', 'Working on it'],
         'Priority': ['High', 'Critical', 'Medium', 'High', 'Low'],
-        'Timeline': ['2026-04-10', '2026-04-05', '2026-04-12', '2026-04-15', '2026-04-20']
+        'Timeline': pd.to_datetime(['2026-04-10', '2026-04-05', '2026-04-12', '2026-04-15', '2026-04-20']).date
     })
 
     st.session_state.bd_view = "overview" 
 
-    # 3. MARKETING DATA
     st.session_state.marketing_data = pd.DataFrame({
         "Channel": ["Google Local Service Ads", "Door-to-Door Canvassing", "Facebook Lead Forms", "Commercial Outbound"],
         "Traffic/Volume": ["15k impressions", "800 doors knocked", "12k clicks", "5k emails sent"],
@@ -44,7 +42,6 @@ def init_db():
         "AI Health Score (%)": [88, 71, 62, 78] 
     })
 
-    # 4. INTERACTIONS (Calls/Emails)
     st.session_state.interactions = [
         {
             "Type": "Call", "Direction": "Inbound", "Rep": "Sarah Chen", "Deal_ID": "D-103",
@@ -58,7 +55,6 @@ def init_db():
     ]
 
 # --- BULLETPROOF INITIALIZATION ---
-# Checks every single required variable. If ANY are missing, it initializes everything.
 required_keys = ['crm_deals', 'ops_tasks', 'bd_view', 'marketing_data', 'interactions']
 for key in required_keys:
     if key not in st.session_state:
@@ -125,6 +121,10 @@ def view_operations_board():
 
     st.divider()
     st.subheader("Active Tasks (Interactive Board)")
+    
+    # FAILSAFE: This forcefully converts any cached string dates from your broken session into actual Date objects
+    # so Streamlit doesn't crash when rendering the column.
+    st.session_state.ops_tasks['Timeline'] = pd.to_datetime(st.session_state.ops_tasks['Timeline']).dt.date
     
     edited_df = st.data_editor(
         st.session_state.ops_tasks,
