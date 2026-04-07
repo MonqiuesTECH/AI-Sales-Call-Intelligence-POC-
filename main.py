@@ -14,7 +14,7 @@ except KeyError:
     st.stop()
 
 # --- MOCK DATABASE (SESSION STATE) ---
-if 'crm_deals' not in st.session_state:
+def init_db():
     st.session_state.crm_deals = pd.DataFrame({
         'Deal_ID': ['D-101', 'D-102', 'D-103'],
         'Client': ['TechCorp', 'Global Logistics', 'Retail Giant'],
@@ -22,9 +22,10 @@ if 'crm_deals' not in st.session_state:
         'Stage': ['Discovery', 'Negotiation', 'Closed Won'],
         'Value': [50000, 120000, 15000] # Kept strictly as integers
     })
-
-if 'call_logs' not in st.session_state:
     st.session_state.call_logs = []
+
+if 'crm_deals' not in st.session_state or 'call_logs' not in st.session_state:
+    init_db()
 
 # --- AI PROCESSING LOGIC ---
 def analyze_call_with_ai(transcript_text, rep_name):
@@ -64,7 +65,6 @@ def view_sales_rep():
     st.markdown("Manage your deals and log new meeting intelligence.")
     
     st.subheader("Active Deals")
-    # Using Streamlit's native column_config to format currency safely
     st.dataframe(
         st.session_state.crm_deals, 
         use_container_width=True, 
@@ -132,7 +132,10 @@ def view_admin_dashboard():
     st.markdown("Overview of team activity, KPI trends, and adaptive learning needs.")
     
     # --- TOP LEVEL METRICS ---
-    total_pipeline = st.session_state.crm_deals['Value'].sum()
+    # Fail-safe: Force values to numeric, stripping any corrupted strings from old session memory
+    clean_values = st.session_state.crm_deals['Value'].astype(str).str.replace(r'[$,]', '', regex=True)
+    total_pipeline = pd.to_numeric(clean_values, errors='coerce').sum()
+    
     total_calls = len(st.session_state.call_logs)
     
     if total_calls > 0:
@@ -212,6 +215,11 @@ def view_admin_dashboard():
 st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Manager Dashboard"])
 st.sidebar.divider()
+
+# Added a reset button to easily clear cache during testing/demos
+if st.sidebar.button("🔄 Reset POC Data"):
+    init_db()
+    st.rerun()
 
 if app_mode == "Sales Rep Hub":
     view_sales_rep()
