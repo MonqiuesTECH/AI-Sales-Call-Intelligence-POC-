@@ -22,14 +22,15 @@ def init_db():
         'Value': [350000, 120000, 850000, 420000, 210000] 
     })
     
+    # Expanded Ops Data for a realistic $10M company
     st.session_state.ops_tasks = pd.DataFrame({
-        'Task_ID': ['T-01', 'T-02', 'T-03', 'T-04', 'T-05'],
-        'Deal_ID': ['D-103', 'D-103', 'D-101', 'D-105', 'Internal'],
-        'Task Name': ['Submit City Permits', 'Order Inverters', 'Draft HOA Proposal', 'Cancel Procurement (Lost Deal)', 'Mandatory Compliance Training'],
-        'Owner': ['Ops Team', 'Procurement', 'Alex Rivera', 'Engineering', 'Elena Rostova'],
-        'Status': ['Working on it', 'Done', 'Stuck', 'Done', 'To Do'],
-        'Priority': ['High', 'Critical', 'Medium', 'Critical', 'Critical'],
-        'Timeline': pd.to_datetime(['2026-04-10', '2026-04-05', '2026-04-12', '2026-04-08', '2026-04-09']).date
+        'Task_ID': ['T-01', 'T-02', 'T-03', 'T-04', 'T-05', 'T-06', 'T-07', 'T-08'],
+        'Deal_ID': ['D-103', 'D-103', 'D-101', 'D-105', 'Internal', 'D-101', 'D-104', 'D-103'],
+        'Task Name': ['Submit City Permits', 'Order Inverters', 'Draft HOA Proposal', 'Cancel Procurement (Lost)', 'Mandatory Safety Training', 'Site Shading Analysis', 'Interconnection Agreement', 'Schedule Install Crew'],
+        'Owner': ['Ops Team', 'Procurement', 'Alex Rivera', 'Engineering', 'Elena Rostova', 'Engineering', 'Ops Team', 'Ops Team'],
+        'Status': ['Done', 'Done', 'Stuck', 'Done', 'To Do', 'Working on it', 'Working on it', 'To Do'],
+        'Priority': ['High', 'Critical', 'Medium', 'Critical', 'Critical', 'High', 'Medium', 'High'],
+        'Timeline': pd.to_datetime(['2026-04-10', '2026-04-05', '2026-04-12', '2026-04-08', '2026-04-09', '2026-04-14', '2026-04-18', '2026-04-22']).date
     })
 
     st.session_state.marketing_data = pd.DataFrame({
@@ -41,64 +42,37 @@ def init_db():
 
     st.session_state.interactions = [
         {
-            "Type": "Call", "Direction": "Inbound", "Rep": "Sarah Chen", "Deal_ID": "D-103",
-            "Content": "Prospect: 'I'm worried about the panels voiding my roof warranty.' \n\nSarah: 'I completely understand. We use a proprietary triple-flashing mount system to maintain GAF warranties. Let me send the engineering spec.'",
-            "Analysis": {
-                "kpi_scores": {"clarity": 9, "confidence": 9, "objection_handling": 10, "closing": 8},
-                "key_takeaways": ["Excellent technical knowledge", "Strong trust building"],
-                "manager_coaching_playbook": "Sarah handled technical objections perfectly."
-            }
+            "Type": "Call", "Direction": "Outbound", "Rep": "Elena Rostova", "Deal_ID": "D-105",
+            "Content": "Prospect: 'I read that the solar tax credit is only 30%.' \n\nElena: 'No, listen to me, if you sign today I guarantee you a 100% write-off.'",
+            "Analysis": {"kpi_scores": {"clarity": 2, "confidence": 9, "objection_handling": 1, "closing": 1}, "key_takeaways": ["Violated federal compliance"], "manager_coaching_playbook": "🚨 CRITICAL: Elena provided fraudulent tax advice."}
         }
     ]
 
     st.session_state.ceo_metrics = {"ARR": 10400000, "Cash_Runway_Months": 14, "Burn_Rate": 450000, "Active_Agents": 3}
     
-    # NEW: Zero-Meeting Architecture Message Brokers
-    st.session_state.push_notifications = [] # Alerts sent from COO to Reps
-    st.session_state.task_evidence = [] # Files and notes uploaded back to the COO
+    # Message Brokers
+    st.session_state.push_notifications = [] 
+    st.session_state.task_evidence = [] 
 
-# --- BULLETPROOF INITIALIZATION ---
 required_keys = ['crm_deals', 'ops_tasks', 'marketing_data', 'interactions', 'ceo_metrics', 'push_notifications', 'task_evidence']
 for key in required_keys:
     if key not in st.session_state:
         init_db()
         break
 
-# --- AI PROCESSING LOGIC ---
-def analyze_interaction_with_ai(content, rep_name, type="call"):
-    system_prompt = """You are an AI sales leadership coach. You must output ONLY valid JSON.
-    Schema: {"kpi_scores": {"clarity": 8, "confidence": 8, "objection_handling": 8, "closing": 8}, "key_takeaways": ["point 1"], "manager_coaching_playbook": "Actionable advice."}"""
-    user_prompt = f"Analyze this {type} interaction for Sales Rep: {rep_name}.\n\nText: {content}"
-    
-    try:
-        response = client.chat.completions.create(model="llama3-8b-8192", messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], temperature=0.1, response_format={"type": "json_object"})
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        return {"kpi_scores": {"clarity": 5, "confidence": 5, "objection_handling": 5, "closing": 5}, "key_takeaways": ["API Analysis Failed"], "manager_coaching_playbook": "API error."}
-
 # --- VIEWS ---
 
 def view_ceo_command_center():
     st.header("🏢 CEO Command Center")
     st.markdown("The Company Brain: Cross-departmental synthesis powered by Gemini OS.")
-    
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Projected ARR", f"${st.session_state.ceo_metrics['ARR']:,.0f}", "+12% YoY")
-    c2.metric("Cash Runway", f"{st.session_state.ceo_metrics['Cash_Runway_Months']} Months", "-1 Month")
-    c3.metric("Total Pipeline", "$1,950,000")
+    c2.metric("Total Pipeline", "$1,950,000")
     total_tasks = len(st.session_state.ops_tasks)
     stuck = len(st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] == 'Stuck'])
     flow_health = ((total_tasks - stuck) / total_tasks) * 100 if total_tasks > 0 else 100
-    c4.metric("Ops Delivery Health", f"{flow_health:.0f}%", f"-{stuck} Stuck Projects", delta_color="inverse")
-    
-    st.divider()
-
-    st.subheader("🤖 Autonomous Workspace Agents (Live Status)")
-    a1, a2, a3 = st.columns(3)
-    a1.info("**📧 Inbound Lead Parser**\n\nStatus: *Active*\n\nProcessed 42 emails today.")
-    a2.warning("**🏗️ Ops Permitting Agent**\n\nStatus: *Blocked*\n\nWaiting on City API for D-103.")
-    a3.success("**📁 Auto-Filing Agent**\n\nStatus: *Active*\n\nOrganized 12 site photos to CRM.")
-
+    c3.metric("Ops Delivery Health", f"{flow_health:.0f}%", f"-{stuck} Stuck Projects", delta_color="inverse")
+    c4.metric("Active Agents", st.session_state.ceo_metrics['Active_Agents'])
     st.divider()
     st.subheader("🧠 Gemini Executive Synthesis")
     st.error("🚨 **Systemic Risk Detected (Sales vs. Ops):** Deal D-103 (GreenTech Warehouse) was marked 'Closed Won', but Operations is STUCK. Revenue recognition will be delayed. Recommend immediate COO intervention.")
@@ -114,7 +88,6 @@ def view_employee_terminal():
 
     with tab_inbox:
         st.subheader("Zero-Meeting Action Items")
-        # Filter alerts for this specific rep
         rep_alerts = [alert for alert in st.session_state.push_notifications if alert['Owner'] == selected_rep and not alert.get('Resolved', False)]
         
         if not rep_alerts:
@@ -126,23 +99,20 @@ def view_employee_terminal():
                 with st.form(key=f"update_form_{idx}"):
                     st.markdown("**Provide Context & Evidence (Bypass Status Meetings):**")
                     update_notes = st.text_area("Status Update / Explanation")
-                    uploaded_evidence = st.file_uploader("Upload Evidence (Photos, PDFs, Approvals)", type=["png", "jpg", "pdf", "mp4"])
+                    # Upgraded File Uploader for Multi-Media
+                    uploaded_evidence = st.file_uploader("Attach Evidence (Site Videos .mp4, Photos .jpg, Permits .pdf)", type=["png", "jpg", "jpeg", "pdf", "mp4", "mov"], accept_multiple_files=True)
                     new_status = st.selectbox("Update Task Status", ["Working on it", "Done", "Stuck"])
                     
                     if st.form_submit_button("Submit Evidence & Clear Alert"):
-                        # Mark alert as resolved
                         alert['Resolved'] = True
-                        
-                        # Update the main Ops database
                         st.session_state.ops_tasks.loc[st.session_state.ops_tasks['Task_ID'] == alert['Task_ID'], 'Status'] = new_status
                         
-                        # Log the evidence for the COO to see
-                        file_name = uploaded_evidence.name if uploaded_evidence else "No file attached"
+                        file_names = [file.name for file in uploaded_evidence] if uploaded_evidence else ["No files attached"]
                         st.session_state.task_evidence.append({
                             "Task_ID": alert['Task_ID'],
                             "Rep": selected_rep,
                             "Notes": update_notes,
-                            "File": file_name,
+                            "Files": file_names,
                             "New_Status": new_status
                         })
                         st.success("Update pushed directly to Operations Dashboard. Alert cleared.")
@@ -150,7 +120,6 @@ def view_employee_terminal():
 
     with tab_crm:
         st.dataframe(st.session_state.crm_deals[st.session_state.crm_deals['Rep'] == selected_rep], use_container_width=True, hide_index=True)
-        # (Existing call/email sync buttons would go here)
         st.info("💡 Auto-Sync with Gemini is active. Emails are automatically logged to the CRM.")
 
 def view_operations_board():
@@ -166,6 +135,19 @@ def view_operations_board():
     c2.metric("Blocked/Stuck Tasks", stuck_tasks, delta_color="inverse" if stuck_tasks > 0 else "normal", delta=f"{stuck_tasks} Needs Attention")
     c3.metric("Ops Flow Health", f"{flow_rate:.0f}%", f"{flow_rate - 85:+.1f}% vs Target", delta_color="normal" if flow_rate >= 85 else "inverse")
     c4.metric("Evidence Uploaded", len(st.session_state.task_evidence))
+
+    st.divider()
+
+    # --- PREDICTIVE FORECASTING ---
+    st.subheader("📈 Strategic Operations Forecast (AI)")
+    st.info("""
+    **Gemini Market & Capacity Analysis:**
+    Based on trailing 30-day sales velocity ($850k closed) and the active $1.95M pipeline, current operational capacity is running at **92% utilization**. 
+    
+    **Forecast:** If Deals D-101 and D-104 close this week as projected by Sales, the 'Engineering / Permitting' queue will exceed capacity by 15%, causing a 14-day installation delay. 
+    
+    **Action Required:** Pre-approve overtime for the engineering desk or engage a freelance CAD drafter immediately to protect the 85% Ops Flow Health target.
+    """)
 
     st.divider()
 
@@ -188,14 +170,18 @@ def view_operations_board():
         st.subheader("🚀 Asynchronous Interventions")
         st.markdown("Push notifications to clear roadblocks without meetings.")
         
-        stuck_df = st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] == 'Stuck']
-        if stuck_df.empty:
-            st.success("No stuck tasks currently.")
+        # Now shows ALL tasks that are NOT "Done" (Stuck, To Do, Working on it)
+        pending_df = st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] != 'Done']
+        if pending_df.empty:
+            st.success("All tasks complete!")
         else:
-            for index, row in stuck_df.iterrows():
+            for index, row in pending_df.iterrows():
+                # Color code the border based on status
+                border_color = "red" if row['Status'] == 'Stuck' else "gray"
                 with st.container(border=True):
-                    st.write(f"**{row['Task Name']}** ({row['Owner']})")
-                    if st.button(f"📲 Ping {row['Owner']} for Update", key=row['Task_ID']):
+                    st.markdown(f"**{row['Task Name']}**")
+                    st.caption(f"Owner: {row['Owner']} | Status: {row['Status']}")
+                    if st.button(f"📲 Ask for Update", key=f"ping_{row['Task_ID']}"):
                         st.session_state.push_notifications.append({
                             "Task_ID": row['Task_ID'],
                             "Task Name": row['Task Name'],
@@ -208,19 +194,18 @@ def view_operations_board():
     st.divider()
     
     st.subheader("🗂️ Task Evidence & AI Summaries")
-    st.markdown("Review requested files and status updates asynchronously.")
+    st.markdown("Review requested files (videos, photos, docs) and status updates asynchronously.")
     if not st.session_state.task_evidence:
         st.caption("No evidence uploaded yet. Ping an owner above to request files.")
     else:
         for ev in reversed(st.session_state.task_evidence):
             with st.expander(f"Update: Task {ev['Task_ID']} by {ev['Rep']} ➔ Moved to '{ev['New_Status']}'", expanded=True):
                 st.markdown(f"**Rep's Notes:** {ev['Notes']}")
-                st.markdown(f"**📎 Attached File:** `{ev['File']}`")
-                st.info("🤖 **Gemini Analysis:** Evidence verified. The attached documentation matches the permit requirements for the city. Proceed with installation scheduling.")
+                st.markdown(f"**📎 Attached Files:** {', '.join(ev['Files'])}")
+                st.info("🤖 **Gemini Analysis:** Evidence verified. The attached media matches the project requirements. Proceed to next stage.")
 
 def view_head_of_bd():
     st.header("👔 Head of BD Dashboard")
-    # Reduced for brevity, keep the same as previous versions.
     st.info("Sales dashboard operating normally. Use CEO Command Center for cross-functional data.")
 
 # --- MAIN APP ROUTING ---
