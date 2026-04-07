@@ -57,10 +57,15 @@ def init_db():
         }
     ]
 
-if 'crm_deals' not in st.session_state:
-    init_db()
+# --- BULLETPROOF INITIALIZATION ---
+# Checks every single required variable. If ANY are missing, it initializes everything.
+required_keys = ['crm_deals', 'ops_tasks', 'bd_view', 'marketing_data', 'interactions']
+for key in required_keys:
+    if key not in st.session_state:
+        init_db()
+        break
 
-# --- AI PROCESSING LOGIC (Unchanged for brevity, keep your existing one) ---
+# --- AI PROCESSING LOGIC ---
 def analyze_interaction_with_ai(content, rep_name, type="call"):
     if type == "call":
         prompt = f"""Analyze this solar sales call transcript for {rep_name} using AI Sales Training standards. Transcript: {content} Output valid JSON: {{"kpi_scores": {{"clarity": int, "confidence": int, "objection_handling": int, "closing": int}}, "key_takeaways": ["point 1"], "manager_coaching_playbook": "Actionable advice."}}"""
@@ -121,12 +126,11 @@ def view_operations_board():
     st.divider()
     st.subheader("Active Tasks (Interactive Board)")
     
-    # This st.data_editor is the magic that makes it feel like Monday.com
     edited_df = st.data_editor(
         st.session_state.ops_tasks,
         use_container_width=True,
         hide_index=True,
-        num_rows="dynamic", # Allows them to add new rows at the bottom!
+        num_rows="dynamic",
         column_config={
             "Status": st.column_config.SelectboxColumn(
                 "Status",
@@ -146,15 +150,12 @@ def view_operations_board():
         }
     )
     
-    # Save changes back to session state so it persists during the session
     st.session_state.ops_tasks = edited_df
-    
     st.info("💡 **Tip:** Double click any cell to edit it, or click the '+' at the bottom to add a new task, just like Monday.com.")
 
 def view_head_of_bd():
     st.header("👔 Head of BD Dashboard (Team Overview)")
     
-    # Re-using the simplified metrics for brevity
     total_calls = sum(1 for i in st.session_state.interactions if i['Type'] == 'Call')
     clean_values = st.session_state.crm_deals['Value'].astype(str).str.replace(r'[$,]', '', regex=True)
     total_pipeline = pd.to_numeric(clean_values, errors='coerce').sum()
@@ -181,12 +182,11 @@ def view_head_of_bd():
 
 # --- MAIN APP ROUTING ---
 st.sidebar.title("Navigation")
-# ADDED THE NEW OPS BOARD TO THE MENU
 app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Operations Board (Monday.com Clone)", "Head of BD Dashboard"])
 st.sidebar.divider()
 
-if st.sidebar.button("🔄 Reset to Solar Defaults"):
-    for key in ['crm_deals', 'interactions', 'bd_view', 'marketing_data', 'ops_tasks']:
+if st.sidebar.button("🔄 Reset Database / Clear Cache"):
+    for key in required_keys:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
