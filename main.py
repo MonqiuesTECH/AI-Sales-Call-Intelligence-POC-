@@ -4,7 +4,7 @@ import json
 from groq import Groq
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="AI CRM Intelligence POC", layout="wide", page_icon="📈")
+st.set_page_config(page_title="AI CRM Intelligence", layout="wide", page_icon="📈")
 
 # Initialize Groq
 try:
@@ -20,7 +20,7 @@ if 'crm_deals' not in st.session_state:
         'Client': ['TechCorp', 'Global Logistics', 'Retail Giant'],
         'Rep': ['Monique Bruce', 'Alex Rivera', 'Monique Bruce'],
         'Stage': ['Discovery', 'Negotiation', 'Closed Won'],
-        'Value': [50000, 120000, 15000] # Changed to integers for metric calculations
+        'Value': [50000, 120000, 15000] # Kept strictly as integers
     })
 
 if 'call_logs' not in st.session_state:
@@ -63,34 +63,41 @@ def view_sales_rep():
     st.header("👤 Sales Representative Hub")
     st.markdown("Manage your deals and log new meeting intelligence.")
     
-    # Formatting value for display
-    display_df = st.session_state.crm_deals.copy()
-    display_df['Value'] = display_df['Value'].apply(lambda x: f"${x:,.0f}")
-    
     st.subheader("Active Deals")
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    # Using Streamlit's native column_config to format currency safely
+    st.dataframe(
+        st.session_state.crm_deals, 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "Value": st.column_config.NumberColumn(
+                "Value",
+                help="Total deal value in USD",
+                format="$%d"
+            )
+        }
+    )
     
     st.divider()
     
-    st.subheader("🎙️ Log a Call (Zoom/Meet Sync Mock)")
+    st.subheader("🎙️ Log a Call (Zoom/Meet Sync)")
     
     col1, col2 = st.columns([1, 2])
     with col1:
-        # Get reps for the dropdown
         rep_list = st.session_state.crm_deals['Rep'].unique()
         selected_rep = st.selectbox("Sales Representative", rep_list)
         selected_deal = st.selectbox("Associate with Deal", st.session_state.crm_deals[st.session_state.crm_deals['Rep'] == selected_rep]['Deal_ID'])
         uploaded_file = st.file_uploader("Upload Call Audio", type=["mp3", "wav", "m4a"])
     
     if uploaded_file and st.button("Transcribe & Analyze"):
-        with st.spinner("Transcribing via Groq Whisper-v3..."):
+        with st.spinner("Transcribing audio securely..."):
             transcription = client.audio.transcriptions.create(
                 file=(uploaded_file.name, uploaded_file.read()),
                 model="whisper-large-v3",
                 response_format="text"
             )
             
-        with st.spinner("Extracting KPIs via Llama 3..."):
+        with st.spinner("Extracting KPIs and coaching insights..."):
             analysis_data = analyze_call_with_ai(transcription, selected_rep)
             
             st.session_state.call_logs.append({
@@ -124,11 +131,10 @@ def view_admin_dashboard():
     st.header("👑 Sales Manager Dashboard")
     st.markdown("Overview of team activity, KPI trends, and adaptive learning needs.")
     
-    # --- 1. TOP LEVEL METRICS (Always visible, defaults to 0) ---
+    # --- TOP LEVEL METRICS ---
     total_pipeline = st.session_state.crm_deals['Value'].sum()
     total_calls = len(st.session_state.call_logs)
     
-    # Calculate averages safely to avoid division by zero
     if total_calls > 0:
         all_scores = [log['Analysis']['kpi_scores'] for log in st.session_state.call_logs]
         df_scores = pd.DataFrame(all_scores)
@@ -148,11 +154,11 @@ def view_admin_dashboard():
     m1.metric("Total Calls Analyzed", total_calls)
     m2.metric("Active Pipeline Value", f"${total_pipeline:,.0f}")
     m3.metric("Team Overall KPI Score", f"{avg_overall:.1f} / 10")
-    m4.metric("Active Coaching Alerts", total_calls) # 1 alert per call in this POC
+    m4.metric("Active Coaching Alerts", total_calls)
     
     st.divider()
 
-    # --- 2. KPI BREAKDOWN & TRENDS ---
+    # --- KPI BREAKDOWN & TRENDS ---
     col1, col2 = st.columns(2)
     
     with col1:
@@ -161,7 +167,6 @@ def view_admin_dashboard():
             'KPI': ['Clarity', 'Confidence', 'Objections', 'Closing'],
             'Score': [clarity_avg, confidence_avg, objection_avg, closing_avg]
         })
-        # If all scores are 0, Streamlit might scale the chart weirdly. We force a 0-10 scale.
         st.altair_chart(
             st.line_chart(kpi_chart_data.set_index('KPI'), y='Score', height=300) if total_calls == 0 else st.bar_chart(kpi_chart_data.set_index('KPI'), height=300)
         )
@@ -169,8 +174,7 @@ def view_admin_dashboard():
              st.caption("Awaiting call data to populate KPI distribution.")
 
     with col2:
-        st.subheader("Historical Progress (Mock Trend)")
-        # Demonstrating what a trend chart looks like for the POC
+        st.subheader("Historical Progress")
         trend_data = pd.DataFrame({
             "Week": ["W1", "W2", "W3", "Current"],
             "Avg Score": [6.5, 7.0, 7.2, avg_overall if avg_overall > 0 else 7.2] 
@@ -179,19 +183,17 @@ def view_admin_dashboard():
 
     st.divider()
 
-    # --- 3. REP ACTIVITY & ADAPTIVE COACHING ---
+    # --- REP ACTIVITY & ADAPTIVE COACHING ---
     col3, col4 = st.columns(2)
     
     with col3:
         st.subheader("Call Activity by Rep")
-        # Initialize all reps with 0 calls
         rep_counts = {rep: 0 for rep in st.session_state.crm_deals['Rep'].unique()}
         
-        # Add actual call counts
         for log in st.session_state.call_logs:
             rep_counts[log['Rep']] = rep_counts.get(log['Rep'], 0) + 1
             
-        activity_df = pd.DataFrame(list(rep_counts.items()), columns=['Sales Rep', 'Total Calls'])
+        activity_df = pd.DataFrame(list(rep_counts.items()), columns=['Sales Rep', 'Total Calls Analyzed'])
         st.dataframe(activity_df, use_container_width=True, hide_index=True)
 
     with col4:
@@ -204,21 +206,12 @@ def view_admin_dashboard():
                 deal = log['Deal_ID']
                 suggestion = log['Analysis']['adaptive_suggestion']
                 
-                # Highlight in red/warning to show it requires manager attention
                 st.warning(f"**Action Required for {rep} (Deal {deal}):**\n\n{suggestion}")
 
 # --- MAIN APP ROUTING ---
 st.sidebar.title("Navigation")
 app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Manager Dashboard"])
-
 st.sidebar.divider()
-st.sidebar.markdown("""
-**POC Architecture:**
-1. **Frontend:** Streamlit
-2. **Database:** Session State (Mock)
-3. **Transcription:** Groq Whisper-v3
-4. **Intelligence:** Groq Llama 3 (JSON Mode)
-""")
 
 if app_mode == "Sales Rep Hub":
     view_sales_rep()
