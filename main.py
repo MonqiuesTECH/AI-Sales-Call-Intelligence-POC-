@@ -12,8 +12,10 @@ except KeyError:
     st.error("Missing GROQ_API_KEY in Streamlit secrets.")
     st.stop()
 
-# --- MOCK DATABASE ---
-def init_db():
+# --- MOCK DATABASE (BULLETPROOF INITIALIZATION) ---
+# We check and initialize each variable independently so stale cache never crashes the app.
+
+if 'crm_deals' not in st.session_state:
     st.session_state.crm_deals = pd.DataFrame({
         'Deal_ID': ['D-101', 'D-102', 'D-103', 'D-104'],
         'Client': ['TechCorp', 'Global Logistics', 'Retail Giant', 'Apex Financial'],
@@ -21,10 +23,14 @@ def init_db():
         'Stage': ['Discovery', 'Negotiation', 'Closed Won', 'Prospecting'],
         'Value': [50000, 120000, 15000, 85000] 
     })
+
+if 'interactions' not in st.session_state:
     st.session_state.interactions = []
+
+if 'bd_view' not in st.session_state:
     st.session_state.bd_view = "overview" # Controls the page routing for Head of BD
-    
-    # Mock data for SEO and Campaigns
+
+if 'marketing_data' not in st.session_state:
     st.session_state.marketing_data = pd.DataFrame({
         "Channel": ["SEO (Organic)", "LinkedIn Ads", "Google PPC", "Cold Email Drip"],
         "Traffic/Volume": ["45k visits", "12k impressions", "8k clicks", "15k sent"],
@@ -32,8 +38,11 @@ def init_db():
         "AI Health Score (%)": [88, 71, 78, 62] # 62 and 71 are below the 75% threshold
     })
 
-if 'crm_deals' not in st.session_state or 'interactions' not in st.session_state:
-    init_db()
+def reset_database():
+    """Clears all session state variables to start fresh."""
+    for key in ['crm_deals', 'interactions', 'bd_view', 'marketing_data']:
+        if key in st.session_state:
+            del st.session_state[key]
 
 # --- AI PROCESSING LOGIC ---
 def analyze_interaction_with_ai(content, rep_name, type="call"):
@@ -155,7 +164,6 @@ def view_head_of_bd():
         total_score = 0
         for log in st.session_state.interactions:
             scores = log['Analysis']['kpi_scores']
-            # Convert out-of-10 scores to a percentage
             log_avg = (sum(scores.values()) / (len(scores) * 10)) * 100
             total_score += log_avg
         overall_rating = total_score / len(st.session_state.interactions)
@@ -216,12 +224,11 @@ def view_bd_details():
     
     with tab_reps:
         st.subheader("Individual Rep Performance vs. Target (75%)")
-        # In a real app, this would aggregate real data per rep. We use placeholder data to demonstrate the UI.
         rep_data = pd.DataFrame({
             "Rep Name": st.session_state.crm_deals['Rep'].unique(),
-            "Total Inbound/Outbound": [5, 12, 8], # Mock interaction counts
+            "Total Inbound/Outbound": [5, 12, 8], 
             "Pipeline Controlled": ["$65,000", "$120,000", "$85,000"],
-            "Personal Forbes Rating": [78, 82, 68] # Notice the 68 is below target
+            "Personal Forbes Rating": [78, 82, 68] 
         })
         st.dataframe(rep_data, use_container_width=True, hide_index=True)
         st.info("💡 **AI Insight:** Sarah Chen's Forbes Rating has dropped to 68%. Review her outbound call transcripts to address objection handling.")
@@ -233,7 +240,6 @@ def view_bd_details():
         st.dataframe(
             st.session_state.marketing_data, 
             use_container_width=True, hide_index=True,
-            # Streamlit trick to highlight failing rows visually
             column_config={
                 "AI Health Score (%)": st.column_config.ProgressColumn(
                     "AI Health Score (%)",
@@ -252,7 +258,7 @@ app_mode = st.sidebar.radio("Select View:", ["Sales Rep Hub", "Head of BD Dashbo
 st.sidebar.divider()
 
 if st.sidebar.button("🔄 Reset POC Data"):
-    init_db()
+    reset_database()
     st.rerun()
 
 if app_mode == "Sales Rep Hub":
