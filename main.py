@@ -76,9 +76,8 @@ for key in required_keys:
         init_db()
         break
 
-# --- AI PROCESSING LOGIC (FIXED FOR GROQ JSON API STRICTNESS) ---
+# --- AI PROCESSING LOGIC ---
 def analyze_interaction_with_ai(content, rep_name, type="call"):
-    # Groq requires "JSON" to be explicitly mentioned in the system prompt for json_object mode
     system_prompt = """
     You are an AI sales leadership coach. You must output ONLY valid JSON.
     Your JSON must strictly follow this exact schema:
@@ -103,7 +102,6 @@ def analyze_interaction_with_ai(content, rep_name, type="call"):
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        # Fallback if the API times out or throws an error during demo
         return {
             "kpi_scores": {"clarity": 5, "confidence": 5, "objection_handling": 5, "closing": 5},
             "key_takeaways": ["API Analysis Failed", str(e)],
@@ -224,7 +222,26 @@ def view_head_of_bd():
 # --- MAIN APP ROUTING ---
 st.sidebar.title("🧠 The Company Brain")
 
+# FIXED: Ensure all quotes and commas are perfect here!
 app_mode = st.sidebar.radio("Access Profile:", [
     "CEO Command Center",
     "Head of BD (Sales Hub)", 
-    "Operations Director
+    "Operations Director",
+    "Sales Rep Terminal"
+])
+st.sidebar.divider()
+
+if st.sidebar.button("🔄 Reset Global Database"):
+    for key in required_keys:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()
+
+if app_mode == "CEO Command Center":
+    view_ceo_command_center()
+elif app_mode == "Sales Rep Terminal":
+    view_sales_rep()
+elif app_mode == "Operations Director":
+    view_operations_board()
+elif app_mode == "Head of BD (Sales Hub)":
+    view_head_of_bd()
