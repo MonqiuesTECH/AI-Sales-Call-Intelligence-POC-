@@ -118,7 +118,12 @@ def view_ceo_command_center():
     c1.metric("Projected ARR", f"${st.session_state.ceo_metrics['ARR']:,.0f}", "+12% YoY")
     c2.metric("Cash Runway", f"{st.session_state.ceo_metrics['Cash_Runway_Months']} Months", "-1 Month")
     c3.metric("Total Pipeline", "$1,950,000")
-    c4.metric("Ops Delivery Health", "80%", "-2 Stuck Projects", delta_color="inverse")
+    
+    # Calculate live ops health for CEO view
+    total_tasks = len(st.session_state.ops_tasks)
+    stuck = len(st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] == 'Stuck'])
+    flow_health = ((total_tasks - stuck) / total_tasks) * 100 if total_tasks > 0 else 100
+    c4.metric("Ops Delivery Health", f"{flow_health:.0f}%", f"-{stuck} Stuck Projects", delta_color="inverse")
     
     st.divider()
 
@@ -171,14 +176,34 @@ def view_operations_board():
     st.header("📋 Operations & Project Board")
     st.markdown("Internal task management and post-sale project tracking.")
     
+    # Calculate Ops Flow Metrics
+    total_tasks = len(st.session_state.ops_tasks)
     stuck_tasks = len(st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] == 'Stuck'])
+    completed_tasks = len(st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] == 'Done'])
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Active Projects", len(st.session_state.ops_tasks))
-    c2.metric("Tasks Completed", len(st.session_state.ops_tasks[st.session_state.ops_tasks['Status'] == 'Done']))
+    # Flow Rate: Percentage of tasks that are NOT stuck
+    flow_rate = ((total_tasks - stuck_tasks) / total_tasks) * 100 if total_tasks > 0 else 100
+    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Active Projects", total_tasks)
+    c2.metric("Tasks Completed", completed_tasks)
     c3.metric("Blocked/Stuck Tasks", stuck_tasks, delta_color="inverse" if stuck_tasks > 0 else "normal", delta=f"{stuck_tasks} Needs Attention")
+    
+    # New Target Flow Metric
+    delta_str = f"{flow_rate - 85:+.1f}% vs Target"
+    c4.metric("Ops Flow Health", f"{flow_rate:.0f}%", delta_str, delta_color="normal" if flow_rate >= 85 else "inverse")
 
     st.divider()
+    
+    # --- COO AI PLAYBOOK ---
+    st.subheader("🧠 Gemini Operations Advisor (COO Playbook)")
+    if flow_rate < 85:
+        st.error(f"⚠️ **AI ALERT:** Operations Flow has dropped to **{flow_rate:.0f}%**, missing the 85% company baseline target.\n\n**AI Recommendation:** Deal D-101 ('Draft HOA Proposal' assigned to Alex Rivera) is currently flagged as STUCK and causing a systemic bottleneck. Recommend the COO temporarily reallocate engineering resources to assist Alex and push this task to 'Done'. Resolving this single blocker will restore overall flow health to **{((total_tasks - stuck_tasks + 1) / total_tasks) * 100:.0f}%**.")
+    else:
+        st.success("✅ **AI TRACKER:** Operations are flowing efficiently above the 85% target baseline. No immediate COO intervention is required at this time.")
+    
+    st.divider()
+    st.subheader("Active Tasks (Interactive Board)")
     
     st.session_state.ops_tasks['Timeline'] = pd.to_datetime(st.session_state.ops_tasks['Timeline']).dt.date
     edited_df = st.data_editor(
@@ -190,6 +215,8 @@ def view_operations_board():
         }
     )
     st.session_state.ops_tasks = edited_df
+    
+    st.info("💡 **Demo Interactive feature:** Try changing the 'Stuck' task to 'Done' in the table above, then click out of the box to see the Ops Flow Health metric instantly recalculate!")
 
 def view_head_of_bd():
     st.header("👔 Head of BD Dashboard")
@@ -222,7 +249,6 @@ def view_head_of_bd():
 # --- MAIN APP ROUTING ---
 st.sidebar.title("🧠 The Company Brain")
 
-# FIXED: Ensure all quotes and commas are perfect here!
 app_mode = st.sidebar.radio("Access Profile:", [
     "CEO Command Center",
     "Head of BD (Sales Hub)", 
